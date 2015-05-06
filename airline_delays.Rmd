@@ -1,0 +1,154 @@
+---
+title: "Airline Delays - 2015 Review"
+author: "Gary W. Deinert"
+date: "Monday, May 04, 2015"
+output: html_document
+---
+```{r echo=FALSE, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+library(grid)
+setwd("C:/Users/Gary/Desktop/Data Science Specialzation/Contract Projects/Airline delays")
+filenm = "airline_delay_causes.csv"
+flydata <- read.csv(filenm,header=TRUE)
+
+
+```
+## Synopsis.
+#### In February of 2015, airline carriers at various airports were logged by their different types of delays: late arrivals, weather, security, cancellations, diverted flights, etc.  Our data shows the number of events as well as the total time lost due to the different types of delays.  
+
+```{r echo=FALSE}
+
+## step 1:  make the data tidy.  melt the df and recast matching one observation per row.
+flights <- melt(flydata, id=c("year","month","carrier","carrier_name","airport","airport_name"))
+
+## subset for differences between number of flights delayed and time of delays
+counts <- flights[flights$variable %in% c("arr_flights","arr_del15","carrier_ct","weather_ct","nas_ct","security_ct","late_aircraft_ct","arr_cancelled","arr_diverted"),]
+times <- flights[flights$variable %in% c("arr_delay","carrier_delay","weather_delay","nas_delay","security_delay","late_aircraft_delay"),]
+
+## create summary of delay events by carrier and airport
+airpt_counts <- aggregate.data.frame(counts$value,by=list(counts$airport,counts$variable),sum)
+names(airpt_counts) <- c("airport","delay_type","number")
+carrier_counts <- aggregate.data.frame(counts$value,by=list(counts$carrier_name,counts$variable),sum)
+names(carrier_counts) <- c("airline","delay_type","number")
+
+## create summary of delay times by carrier and airport
+airpt_times <- aggregate.data.frame(times$value, by=list(times$airport,times$variable),sum)
+names(airpt_times) <- c("airport","delay_type","time")
+carrier_times <- aggregate.data.frame(times$value,by=list(times$carrier_name,times$variable),sum)
+names(carrier_times) <- c("airline","delay_type","number")
+
+## remove normal arriving flights from counts of delays
+carrier_delays <- carrier_counts[carrier_counts$delay_type != "arr_flights",]
+airpt_delays <- airpt_counts[airpt_counts$delay_type != "arr_flights",]
+
+## too many airports for good reporting.  Limit to top 25 offenders.
+hi_delay_airpts <- aggregate.data.frame(airpt_delays$number,by=list(airpt_delays$airport),sum)
+names(hi_delay_airpts) <- c("airport","delay_events")
+hi_delay_airpts <- hi_delay_airpts[order(hi_delay_airpts$delay_events,decreasing=TRUE),][1:25,]
+```
+### Exploratory Data Analysis.
+
+```{r echo = FALSE, warning=FALSE, message=FALSE}
+## Create the 'multiplot' function, allowing us to put multiple plots on one page using ggplot2
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+## plots by airline carrier ===================
+
+p1 <- ggplot(data = carrier_delays, 
+       aes(x=carrier_delays$airline,
+           y=carrier_delays$number,
+           fill=carrier_delays$delay_type,)) + 
+      geom_bar(stat="identity", width=0.75) + 
+      coord_flip() + 
+      xlab("US Airline Carriers") +
+      ylab("Number of Delays, February 2015") +
+      scale_fill_brewer(palette="Accent") +
+      scale_fill_discrete(name="Delay Type") +
+      ggtitle("Delay Events by Airline\n") +
+      theme(plot.title = element_text(lineheight = .8, face = "bold"),
+            axis.text.x = element_text(angle=90))
+
+p2 <- ggplot(data = carrier_times, 
+       aes(x=carrier_times$airline,
+           y=carrier_times$number,
+           fill=carrier_times$delay_type,)) + 
+      geom_bar(stat="identity",width=0.75) + 
+      coord_flip() + 
+      xlab("US Airline Carriers") +
+      ylab("Time Delays (minutes), February 2015") +
+      scale_fill_brewer(palette="Accent") +
+      scale_fill_discrete(name="Cause of Delay") +
+      ggtitle("Delay Amounts(Time) by Airline\n") +
+      theme(plot.title = element_text(lineheight = .8, face = "bold"),
+            axis.text.x = element_text(angle=90))
+print(p1)
+print(p2)
+
+## plots by airport ========================================
+
+sel_airpts <- airpt_delays[airpt_delays$airport %in% hi_delay_airpts$airport,]
+p3 <- ggplot(data = sel_airpts, 
+       aes(x=sel_airpts$airport,
+           y=sel_airpts$number,
+           fill=sel_airpts$delay_type,)) + 
+      geom_bar(stat="identity", width=0.75) + 
+      coord_flip() + 
+      xlab("US Airports") +
+      ylab("Number of Delays, February 2015") +
+      scale_fill_brewer(palette="Accent") +
+      scale_fill_discrete(name="Delay Type") +
+      ggtitle("What causes delays at the top 25 delay airports?\n") +
+      theme(plot.title = element_text(lineheight = .8, face = "bold"),
+            axis.text.x = element_text(angle=90))
+
+sel_airpts_time = airpt_times[airpt_times$airport %in% hi_delay_airpts$airport,]
+p4 <- ggplot(data = sel_airpts_time, 
+       aes(x=sel_airpts_time$airport,
+           y=sel_airpts_time$time,
+           fill=sel_airpts_time$delay_type,)) + 
+      geom_bar(stat="identity",width=0.75) + 
+      coord_flip() + 
+      xlab("US Airports") +
+      ylab("Time Delays (minutes), February 2015") +
+      scale_fill_brewer(palette="Accent") +
+      scale_fill_discrete(name="Cause of Delay") +
+      ggtitle("How much time is lost by delay at the top 25 delay airports?\n") +
+      theme(plot.title = element_text(lineheight = .8, face = "bold"),
+            axis.text.x = element_text(angle=90))
+print(p3)
+print(p4)
