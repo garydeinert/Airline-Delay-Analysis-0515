@@ -1,0 +1,30 @@
+---
+title: "Airline Delays - 2015 Review"
+date: "Monday, May 04, 2015"
+output: html_document
+---
+```{r echo=FALSE, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+
+setwd("C:/Users/Gary/Desktop/Data Science Specialzation/Contract Projects/Airline delays")
+filenm = "airline_delay_causes.csv"
+flydata <- read.csv(filenm,header=TRUE)
+
+
+```
+## Synopsis.
+#### In February of 2015, airline carriers at various airports were logged by their different types of delays: late arrivals, weather, security, cancellations, diverted flights, etc.  Our data shows the number of events as well as the total time lost due to the different types of delays.  
+
+```{r echo=FALSE}
+
+## step 1:  make the data tidy.  melt the df and recast matching one observation per row.
+flights <- melt(flydata, id=c("year","month","carrier","carrier_name","airport","airport_name"))
+
+
+```
+### Exploratory Data Analysis.
+
+```{r echo = FALSE, warning=FALSE, message=FALSE}
+
+```
